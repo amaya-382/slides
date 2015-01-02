@@ -54,26 +54,81 @@
 ## 4. Handring errors without exceptions
 
 ===
-##4.1.The good and bad aspects of exceptions
+## 4.1. The good and bad aspects of exceptions
+
+---
+difference between
+![](ex1.png)
+and
+![](ex2.png)
+
+---
+* The former  
+out of `try` scope => err
+
+* The latter  
+will be caught
+
+---
+## Good!
+
+* allow us to consolidate and centralize error-handling logic
+
+---
+## Bad...
+
+* break RT
+* introduce context dependence
+* not type-safe
+
+---
+例が少し極端すぎでは?  
+`try`句の張り方がそもそもおかしい...
+
 
 ===
-##4.2.Possible alts to exceptions
+## 4.2. Possible alts to exceptions
 
 ---
 ## We have some opts without exceptions.
 
-* NaN
-* sentinel value
-* null
+---
+## First possibility
+
+use
+
+* `NaN`
+* *sentinel value*
+* `null`
 
 ---
 ## But...
 
 * It allows errors to silently propagate.
-* `if` statements are used to check whether recieved value is "real" value or not.
+* `if` statements are used to check if recieved value is ***real*** value or not many times over
+* Not polymorphic code, so `null` may not be able to be used.
+* Giving functions special policies like this makes it difficult.
+
+---
+## Second possibility
+
+* Always give default(sentinel?) value
+
+---
+## But...
+
+* It requires that immediate callers have direct knowledge of how to handle the undefined case and limits them to returning a specific type.
+
+* We cannot take different branch depending on the situataion.
 
 ===
-##4.3.The Option data type
+## 4.3.The Option data type
+
+```scala
+sealed trait Option[+A]
+case class Some[+A](get: A) extends Option[A]
+case object None extends Option[Nothing]
+```
 
 ---
 ## 4.3.1. Usage patterns for Option
