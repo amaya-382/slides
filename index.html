@@ -77,14 +77,18 @@ will be caught
 ---
 ## Bad...
 
-* break RT
-* introduce context dependence
-* not type-safe
+* break RT & introduce context dependence  
+... `try`にcatchされる?されない?どの`try`にcatchされる?
+* not type-safe  
+... 型情報からわからない何かが発生する  
+```scala
+val y: Int = throw new Exception("fail!")
+```  
+`y` が `Int` とは言い難い...
+
 
 ---
-例が少し極端すぎでは?  
-`try`句の張り方がそもそもおかしい...
-
+例が少し極端すぎでは?
 
 ===
 ## 4.2. Possible alts to exceptions
@@ -118,11 +122,10 @@ use
 ## But...
 
 * It requires that immediate callers have direct knowledge of how to handle the undefined case and limits them to returning a specific type.
-
 * We cannot take different branch depending on the situataion.
 
 ===
-## 4.3.The Option data type
+## 4.3. The Option data type
 
 ```scala
 sealed trait Option[+A]
@@ -131,14 +134,124 @@ case object None extends Option[Nothing]
 ```
 
 ---
+* *total function* に  
+→成功/失敗の文脈を持った型(=Option)でラップすることで, 必ず(全域)写像の定義域になるようにしよう
+* (統一的な型でラップされていると統一的な処理ができる(至 Monad))
+
+<img src="option.png" style="max-height: 450px;">
+
+---
 ## 4.3.1. Usage patterns for Option
 
-hoge
+* We can factor out common patterns of error handling via higher-order functions, freeing us from writing the usual boilerplate that comes with exception-handling code.
+* Call-by-name のお話
+* covariant(+)
+* lower bound(>:)
+
+```scala
+trait Option[+A] {
+	def map[B](f: A => B): Option[B]
+	def flatMap[B](f: A => Option[B]): Option[B]
+	def getOrElse[B >: A](default: => B): B
+	def orElse[B >: A](ob: => Option[B]): Option[B]
+	def filter(f: A => Boolean): Option[A]
+}
+```
+
+<br>
+
+-----
+FYI: Call-by-name ≠ lazy eval
+
+---
+## 4.3.1. Usage patterns for Option  (Contd.)
+
+* Usage via
+
+  * map
+  * flatMap
+  * filter
+  * getOrElse
+
+* We don’t have to check for `None` at each stage of the computation—we can apply several transformations and then check for and handle `None` when we’re ready.
+
+* The compiler won’t let us forget to explicitly defer or handle the possibility of `None`.
 
 ---
 ## 4.3.2. Option composition, lifting, and wrapping
 
-hoge
+* lifting: We can use existing functions with `Option`!  
+```scala
+def lift[A,B](f: A => B): Option[A] => Option[B] = _ map f
+val absO: Option[Double] => Option[Double] = lift(math.abs)
+// 書き下すと...
+def _lift[A,B](f: A => B): Option[A] => Option[B] =
+                               (opt: Option[A]) => opt map f
+val _absO: Option[Double] => Option[Double] =
+                             lift((x: Double) => math.abs(x))
+val resOpt1: Option[Double] = absO(Some(-10)) // Some(10.0)
+val resOpt2: Option[Double] = absO(None) //None
+```
+<img src="lift.png" style="margin-left: auto; margin-right: auto; width: 750px;2">
+
+---
+
+## incidentally...
+`map` が何をしているのか, すごいH本の言葉を借りると,
+
+* 値から値への関数を取って, それをfunctor値からfunctor値への関数に持ち上げたものを返す関数である(=lifting)  
+(※ functor値 ∋ Option値)  
+
+----
+
+* 値から値への関数とfunctor値を取って, その関数でfunctor値を写して返すものでもある
+
+`lift` と `absO` を合成した感じ. 最終的な結果は等しくなる.  
+比較すると, liftingはただの部分適用だったとも言える
+```scala
+def absO2(opt: Option[Double]): Option[Double] = opt map math.abs
+// 書き下すと...
+def _absO2(opt: Option[Double]): Option[Double] =
+                      opt map { (x: Double) => math.abs(x) }
+val resOpt21: Option[Double] = absO2(Some(-10)) // Some(10.0)
+val resOpt22: Option[Double] = absO2(None) //None
+```
+
+---
+## 4.3.2. Option composition, lifting, and wrapping(Contd.)
+
+`for`式の実体が `map`, `flatMap` (+`foreach`, `filter`, `withFilter`)だという話
+
+ネストが深くなりにくくて便利
+
+---
+### BTW
+例に `Try` 関数が出てきていますが, 実際には
+[scala.util.control.Exception._](http://www.scala-lang.org/files/archive/nightly/docs/library/index.html#scala.util.control.Exception$)
+というくっそ便利なものがあるのでこれを使いましょう
+
+* allCatch
+* catching
+
+```scala
+val r: String = allCatch withApply { t => "bar" } apply { "foo" } // "foo"
+val r: String = allCatch withApply { t => "bar" } apply
+                                          { throw new Exception } // "bar"
+
+val r: Option[String] = allCatch opt { "foo" } // Some("foo")
+val r: Option[String] = allCatch opt { throw new Exception } // None
+
+val catchingEx: Catch[String] = catching(classOf[IllegalArgumentException])
+                                                withApply { t => "IAE" }
+val result = catchingEx { "ok" } // ok
+val result = catchingEx { throw new IllegalArgumentException } // "IAE"
+val result = catchingEx { throw new Exception } // java.lang.Exception
+```
+
+===
+## References
+* [seratch's weblog - scala.util.control.Exception._を使ったサンプル集](http://seratch.hatenablog.jp/entry/20111126/1322309305)
+
                 </script>
             </section>
         </div>
